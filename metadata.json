@@ -1,0 +1,6 @@
+{
+  "name": "CivicPulse AI",
+  "description": "An Intelligent Civic Issue Reporting and Prioritization System with real-time geospatial clustering and automated triage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
