@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   Radio,
   Loader2,
-  Compass
+  Compass,
+  CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BaselineGisData, CivicCategory, CivicIssue } from '../../types';
@@ -27,6 +28,7 @@ import { CATEGORY_METADATA } from '../../data/mockIssues';
 import { calculateUrgencyScore, getSeverityTier, calculateHaversineDistance } from '../../utils/civicPulseAlgorithms';
 import { UrgencyGauge } from '../common/UrgencyGauge';
 import { VisionScannerDropzone } from './VisionScannerDropzone';
+import { LiveCameraVisionScanner, VisionDetectionResult } from './LiveCameraVisionScanner';
 import { soundFx } from '../../utils/soundEffects';
 
 interface CitizenPortalProps {
@@ -96,6 +98,39 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
     'High Vehicular Deflection',
     'Two-Wheeler Hazard'
   ]);
+
+  // Live Computer Vision Camera State
+  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState<boolean>(false);
+  const [autoDetectedBanner, setAutoDetectedBanner] = useState<{
+    title: string;
+    category: CivicCategory;
+    confidence: number;
+  } | null>(null);
+
+  const handleApplyVisionDetection = (result: VisionDetectionResult) => {
+    setSelectedCategory(result.category);
+    setTitle(result.title);
+    setDescription(result.description);
+    setAiVisionTags(result.tags);
+    if (result.urgencyBonus) {
+      setBaselineData((prev) => ({
+        ...prev,
+        distance_to_nearest_hospital_meters:
+          result.urgencyBonus?.hospitalDistanceMeters ?? prev.distance_to_nearest_hospital_meters,
+        distance_to_nearest_school_meters:
+          result.urgencyBonus?.schoolDistanceMeters ?? prev.distance_to_nearest_school_meters,
+        is_peak_traffic_zone:
+          result.urgencyBonus?.isPeakTraffic ?? prev.is_peak_traffic_zone,
+      }));
+    }
+    setAutoDetectedBanner({
+      title: result.title,
+      category: result.category,
+      confidence: result.confidence,
+    });
+    // Advance to step 3 so the citizen can inspect the auto-populated telemetry and urgency score
+    setStep(3);
+  };
 
   // Check if any existing ticket is dangerously close (< 50m) to user's pin
   const closestExistingTicket = nearbyIssues.reduce<{ issue: CivicIssue; distance: number } | null>(
@@ -265,6 +300,17 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Intelligent Intake Engine</span>
               </span>
+              <button
+                type="button"
+                onClick={() => {
+                  soundFx.playClick();
+                  setIsLiveCameraOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 text-xs font-mono font-bold transition-all cursor-pointer shadow-sm shadow-cyan-500/20"
+              >
+                <Camera className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span>Turn On AI Camera (Auto-Detect)</span>
+              </button>
               <button
                 type="button"
                 onClick={onTriggerGps}
@@ -448,6 +494,42 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
                   4 Core Backend Weights
                 </span>
               </div>
+
+              {/* Live Camera Auto-Detect Quick Action Banner */}
+              <motion.div
+                whileHover={{ scale: 1.01 }}
+                onClick={() => {
+                  soundFx.playClick();
+                  setIsLiveCameraOpen(true);
+                }}
+                className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-cyan-950/70 via-slate-900/90 to-blue-950/70 border border-cyan-500/50 hover:border-cyan-400 cursor-pointer transition-all shadow-xl shadow-cyan-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300 group-hover:scale-105 transition-transform shadow-inner">
+                    <Camera className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-white group-hover:text-cyan-200 transition-colors">
+                        Auto-Detect via Camera (Computer Vision)
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 text-[10px] font-mono font-bold flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        AI SENSOR
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
+                      Point your phone or webcam at the hazard. Computer Vision detects potholes, sewage bursts, or garbage spills in real-time and auto-populates the entire intake ticket.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                  <span className="px-4 py-2 rounded-xl bg-cyan-500 group-hover:bg-cyan-400 text-slate-950 font-mono text-xs font-bold transition-all shadow-md flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Open Camera</span>
+                  </span>
+                </div>
+              </motion.div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {(Object.keys(CATEGORY_METADATA) as CivicCategory[]).map((catKey) => {
@@ -740,10 +822,46 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
                     Localized civic urgency score out of 100 via Critical Infrastructure proximity and foot-traffic density.
                   </p>
                 </div>
-                <span className="text-xs font-mono text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20">
-                  SentenceTransformer Vectorization
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundFx.playClick();
+                      setIsLiveCameraOpen(true);
+                    }}
+                    className="text-xs font-mono font-bold text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-cyan-500/20"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                    <span>Open Live Camera</span>
+                  </button>
+                  <span className="text-xs font-mono text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20">
+                    SentenceTransformer Vectorization
+                  </span>
+                </div>
               </div>
+
+              {/* Auto-Detection Notification Bar */}
+              {autoDetectedBanner && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 rounded-xl bg-gradient-to-r from-emerald-950/60 via-slate-900/90 to-cyan-950/60 border border-emerald-500/40 flex items-center justify-between text-xs font-mono"
+                >
+                  <div className="flex items-center gap-2 text-emerald-300">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>
+                      Detected by Computer Vision: <strong>{autoDetectedBanner.title}</strong> ({(autoDetectedBanner.confidence * 100).toFixed(1)}% confidence)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAutoDetectedBanner(null)}
+                    className="text-slate-400 hover:text-white text-[11px] underline cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </motion.div>
+              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 {/* Left Column: Form Inputs (7 cols) */}
@@ -984,6 +1102,7 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
                   <VisionScannerDropzone
                     category={selectedCategory}
                     onTagsDetected={(tags) => setAiVisionTags(tags)}
+                    onOpenLiveCamera={() => setIsLiveCameraOpen(true)}
                   />
                 </div>
               </div>
@@ -1003,6 +1122,14 @@ export const CitizenPortal: React.FC<CitizenPortalProps> = ({
           )}
         </AnimatePresence>
       </form>
+
+      {/* Live Computer Vision Camera Scanner Modal */}
+      <LiveCameraVisionScanner
+        isOpen={isLiveCameraOpen}
+        onClose={() => setIsLiveCameraOpen(false)}
+        onApplyDetection={handleApplyVisionDetection}
+        currentCategory={selectedCategory}
+      />
     </div>
   );
 };

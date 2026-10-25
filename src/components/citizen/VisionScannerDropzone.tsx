@@ -6,11 +6,13 @@ import { soundFx } from '../../utils/soundEffects';
 interface VisionScannerDropzoneProps {
   onTagsDetected: (tags: string[]) => void;
   category: string;
+  onOpenLiveCamera?: () => void;
 }
 
 export const VisionScannerDropzone: React.FC<VisionScannerDropzoneProps> = ({
   onTagsDetected,
-  category
+  category,
+  onOpenLiveCamera
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(
@@ -61,15 +63,30 @@ export const VisionScannerDropzone: React.FC<VisionScannerDropzoneProps> = ({
           <Camera className="w-3.5 h-3.5 text-blue-400" />
           AI Sensor Vision Scanner
         </span>
-        <button
-          type="button"
-          onClick={triggerAiScan}
-          disabled={isScanning}
-          className="text-[10px] font-mono text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
-        >
-          <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
-          <span>{isScanning ? 'Scanning...' : 'Rescan Image'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenLiveCamera && (
+            <button
+              type="button"
+              onClick={() => {
+                soundFx.playClick();
+                onOpenLiveCamera();
+              }}
+              className="text-[11px] font-mono font-bold text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-cyan-500/20"
+            >
+              <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
+              <span>Turn On Live Camera</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={triggerAiScan}
+            disabled={isScanning}
+            className="text-[10px] font-mono text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
+          >
+            <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+            <span>{isScanning ? 'Scanning...' : 'Rescan'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Interactive Scan Canvas / Preview Area */}

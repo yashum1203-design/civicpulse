@@ -159,6 +159,50 @@ class SoundManager {
       // AudioContext fallback
     }
   }
+
+  /** Target acquired chirp */
+  playTargetAcquired() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.setValueAtTime(1320, now + 0.08);
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } catch {
+      // fallback
+    }
+  }
+
+  /** Camera shutter snap sound */
+  playShutter() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(120, now + 0.06);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.06);
+    } catch {
+      // fallback
+    }
+  }
 }
 
 export const soundFx = new SoundManager();
